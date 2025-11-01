@@ -1,0 +1,92 @@
+name: Python testing security
+on: 
+ push:
+   branch: main
+ pull_request:
+   branch: main 
+
+jobs:
+   unit_testing_app:
+     runs-on: ubuntu-latest
+     steps:
+       - name: Checkout kode 
+         uses: actions/checkout@v4
+
+       - name: Set up Python
+         uses: actions/setup-python@v4
+         with:
+          python-version
+          cache: 'pip'
+
+        - name: Install dependencies
+          run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt 
+            pip install pytest pytest-cov
+
+        - name: Run Unit Tests with pytest # Langkah 4: Jalankan Unit Test dan Code Coverage
+          run: |
+            pytest --cov=. --cov-report=xml
+
+    sast_bandit:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+        - name: Set up Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: '3.10'
+        - name: Install dependencies
+          run: |
+            python -m pip install --upgrade pip
+            pip install bandit
+        - name: Run Bandit
+          run: bandit -r ./ -f json -o bandit-results.json
+        - name: Upload results
+          uses: actions/upload-artifact@v3
+          with:
+            name: bandit-results
+            path: bandit-results.json
+
+    security_scan:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout Code
+          uses: actions/checkout@v4
+      
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+           python-version: '3.x'
+
+        - name: Install Dependencies & pip-audit
+          run: |
+            pip install -r requirements.txt
+            pip install pip-audit
+          
+        - name:  Security Audit with pip-audit
+          run: |
+            pip-audit --fail-on-severity high --format columns
+
+    gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+          
+      - name: Run Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2 
+        with:
+          config: .gitleaks.toml # Opsional: Gunakan file konfigurasi Anda
+          
+      - name: Report Success (Jika Lolos)
+        if: success()
+        run: echo "Gitleaks Scan Selesai, Tidak Ada Rahasia yang Ditemukan."
+
+      - name: Report Failure (Jika Gagal)
+        if: failure()
+        run: |
+          echo "KEGAGALAN KEAMANAN: Rahasia Terdeteksi oleh Gitleaks!"
+
